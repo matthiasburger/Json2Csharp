@@ -10,8 +10,11 @@ using EnvDTE;
 using IronSphere.Extensions;
 
 using Microsoft.VisualStudio.Shell;
+using Microsoft.VisualStudio.Shell.Interop;
 using Microsoft.VisualStudio.Text;
 
+using Constants = EnvDTE.Constants;
+using IAsyncServiceProvider = Microsoft.VisualStudio.Shell.IAsyncServiceProvider;
 using Task = System.Threading.Tasks.Task;
 
 namespace JsonToCsharp
@@ -80,6 +83,10 @@ namespace JsonToCsharp
             Instance = new ConvertCommand(package, commandService);
         }
 
+
+
+
+
         /// <summary>
         /// This function is the callback used to execute the command when the menu item is clicked.
         /// See the constructor to see how the menu item is associated with this function using
@@ -94,6 +101,11 @@ namespace JsonToCsharp
             DTE dte = ServiceProvider.GetServiceAsync(typeof(DTE)).Result as DTE;
 
             Document doc = dte?.ActiveDocument;
+
+            string path = doc.Path;
+
+            string @namespace = _findNameSpaceInPath(path);
+
             TextDocument txt = doc?.Object() as TextDocument;
 
             EditPoint editPoint = txt?.StartPoint.CreateEditPoint();
@@ -121,25 +133,28 @@ namespace JsonToCsharp
                 };
                 parser.Parse();
 
-                NetCodeWriter codeWriter = new NetCodeWriter(parser.Classes);
-
-                string netCode = codeWriter.GetCode();
-
-                if (dte.Solution.FullName.IsNullOrWhiteSpace())
+                string netCode = new NetCodeWriter(parser.Classes)
                 {
-                    TextSelection txtSel = (TextSelection)dte.ActiveDocument.Selection;
+                    Namespace = @namespace
+                }.GetCode();
 
+                if (!dte.Solution.FullName.IsNullOrWhiteSpace())
+                {
+                    string fileName = parser.Classes.FirstOrDefault(x => x.Name == className)?.GetClassName() ?? "TempClass";
+                    string filename = $"{fileName}.cs";
+                    dte.ItemOperations.NewFile(@"General\Text File", filename, Constants.vsViewKindTextView);
+
+                    TextSelection txtSel = (TextSelection)dte.ActiveDocument.Selection;
                     txtSel.SelectAll();
                     txtSel.Delete();
+                    txtSel.Insert(netCode);
 
-                    editPoint.Insert(netCode);
+                    dte.ActiveDocument.Save(Path.Combine(path, filename));
+                    doc.ProjectItem.ProjectItems.AddFromFile(Path.Combine(path, filename));
                 }
                 else
                 {
-                    string fileName = parser.Classes.FirstOrDefault(x => x.Name == className)?.GetClassName() ?? "TempClass";
-                    dte.ItemOperations.NewFile(@"General\Text File", fileName + ".cs", Constants.vsViewKindTextView);
                     TextSelection txtSel = (TextSelection)dte.ActiveDocument.Selection;
-
                     txtSel.SelectAll();
                     txtSel.Delete();
                     txtSel.Insert(netCode);
@@ -147,13 +162,35 @@ namespace JsonToCsharp
             }
             catch (Exception ex)
             {
-                editPoint.EndOfDocument();
-                editPoint.Insert(Environment.NewLine);
-                editPoint.Insert(Environment.NewLine);
-                editPoint.Insert("----------------------------");
-                editPoint.Insert(Environment.NewLine);
-                editPoint.Insert(ex.ToString());
+                StringBuilder stringBuilder = new StringBuilder(ex.ToString())
+                        .Append("----------------------------")
+                        .Append(Environment.NewLine)
+                        .Append("Please write an issue, including your json and repro-steps to https://github.com/matthiasburger/Json2Csharp-Issues/issues");
+
+                VsShellUtilities.ShowMessageBox(
+                    package,
+                    stringBuilder.ToString(),
+                    "Json to C# Plugin - Exception",
+                    OLEMSGICON.OLEMSGICON_INFO,
+                    OLEMSGBUTTON.OLEMSGBUTTON_OK,
+                    OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
             }
+        }
+
+        private static string _findNameSpaceInPath(string path)
+        {
+            string[] files = Directory.GetFiles(path, "*.cs", SearchOption.TopDirectoryOnly);
+            return files.Select(_getNamespaceInFile)
+                .FirstOrDefault(@namespace => !@namespace.IsNullOrWhiteSpace());
+        }
+
+        private static string _getNamespaceInFile(string filepath)
+        {
+            return (
+                from line in File.ReadLines(filepath) 
+                where line.StartsWith("namespace ") 
+                select ".".Join(line.Split(' ').Skip(1))
+                ).FirstOrDefault();
         }
     }
 }

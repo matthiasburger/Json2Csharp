@@ -1,12 +1,20 @@
 ﻿using System;
 using System.ComponentModel.Design;
 using System.Globalization;
+using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Windows.Forms;
+
+using EnvDTE;
+
+using IronSphere.Extensions;
 
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
 
+using Constants = Microsoft.VisualStudio.Shell.Interop.Constants;
 using Task = System.Threading.Tasks.Task;
 
 namespace JsonToCsharp
@@ -88,20 +96,62 @@ namespace JsonToCsharp
         /// </summary>
         /// <param name="sender">Event sender.</param>
         /// <param name="e">Event args.</param>
+        [STAThread]
         private void Execute(object sender, EventArgs e)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
-            string message = string.Format(CultureInfo.CurrentCulture, "Inside {0}.MenuItemCallback()", this.GetType().FullName);
-            string title = "PasteJsonFromClipboard";
 
-            // Show a message box to prove we were here
-            VsShellUtilities.ShowMessageBox(
-                this.package,
-                message,
-                title,
-                OLEMSGICON.OLEMSGICON_INFO,
-                OLEMSGBUTTON.OLEMSGBUTTON_OK,
-                OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
+            if (Clipboard.ContainsText(TextDataFormat.Text))
+            {
+                string result = Clipboard.GetText(TextDataFormat.Text);
+
+                DTE dte = ServiceProvider.GetServiceAsync(typeof(DTE)).Result as DTE;
+
+                Document doc = dte?.ActiveDocument;
+                TextDocument txt = doc?.Object() as TextDocument;
+
+                bool useCurrentDocument = txt?.StartPoint.CreateEditPoint().GetText(txt.EndPoint).Trim().Length == 0;
+
+                try
+                {
+                    string className = (useCurrentDocument ? doc?.Name?.Split('.').FirstOrDefault() : null) ?? "initial_class";
+
+                    JsonParser parser = new JsonParser(result)
+                    {
+                        InitialClassName = className
+                    };
+                    parser.Parse();
+
+                    string netCode = new NetCodeWriter(parser.Classes).GetCode();
+
+                    if (!useCurrentDocument)
+                    {
+                        string fileName = parser.Classes.FirstOrDefault(x => x.Name == className)?.GetClassName() ?? "TempClass";
+                        dte.ItemOperations.NewFile(@"General\Text File", $"{fileName}.cs", EnvDTE.Constants.vsViewKindTextView);
+                    }
+
+                    TextSelection txtSel = (TextSelection)dte.ActiveDocument.Selection;
+
+                    txtSel.SelectAll();
+                    txtSel.Delete();
+                    txtSel.Insert(netCode);
+                }
+                catch (Exception ex)
+                {
+                    StringBuilder stringBuilder = new StringBuilder(ex.ToString())
+                            .Append("----------------------------")
+                            .Append(Environment.NewLine)
+                            .Append("Please write an issue, including your json and repro-steps to https://github.com/matthiasburger/Json2Csharp-Issues/issues");
+
+                    VsShellUtilities.ShowMessageBox(
+                        package,
+                        stringBuilder.ToString(),
+                        "Json to C# Plugin",
+                        OLEMSGICON.OLEMSGICON_INFO,
+                        OLEMSGBUTTON.OLEMSGBUTTON_OK,
+                        OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
+                }
+            }
         }
     }
 }

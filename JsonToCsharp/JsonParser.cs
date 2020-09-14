@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Linq;
 
+using IronSphere.Extensions;
+
 using Newtonsoft.Json.Linq;
 
 namespace JsonToCsharp
@@ -34,6 +36,7 @@ namespace JsonToCsharp
                 Classes.Add(rootClass);
                 _parseArray(root, rootClass);
             }
+            else throw new Exception($"cannot parse json with start \"{_json.CutAt(5, "...")}\"");
         }
 
         private Clazz _getOrCreateClazz(string propertyName)
