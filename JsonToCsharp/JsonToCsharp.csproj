@@ -47,6 +47,7 @@
   <ItemGroup>
     <Compile Include="ClassGenerator.cs" />
     <Compile Include="Clazz.cs" />
+    <Compile Include="ConvertAssist.cs" />
     <Compile Include="ConvertCommand.cs" />
     <Compile Include="JsonParser.cs" />
     <Compile Include="NetCodeWriter.cs" />

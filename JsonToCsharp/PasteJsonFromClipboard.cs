@@ -1,6 +1,7 @@
 ﻿using System;
 using System.ComponentModel.Design;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -22,7 +23,7 @@ namespace JsonToCsharp
     /// <summary>
     /// Command handler
     /// </summary>
-    internal sealed class PasteJsonFromClipboard
+    internal sealed class PasteJsonFromClipboard : ConvertAssist
     {
         /// <summary>
         /// Command ID.
@@ -89,6 +90,82 @@ namespace JsonToCsharp
             Instance = new PasteJsonFromClipboard(package, commandService);
         }
 
+        [STAThread]
+        private void Execute(object sender, EventArgs e)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            if (!(ServiceProvider.GetServiceAsync(typeof(DTE)).Result is DTE dte))
+            {
+                _showMessageBoxNoDte();
+                return;
+            }
+
+            Document doc = dte.ActiveDocument;
+            TextDocument txt = doc?.Object() as TextDocument;
+            bool useCurrentDocument = txt?.StartPoint.CreateEditPoint().GetText(txt.EndPoint).Trim().Length == 0;
+            
+            string className = (useCurrentDocument ? doc?.Name?.Split('.').FirstOrDefault() : null) ?? "temp_class";
+            JsonParser parser;
+
+            try
+            { 
+                parser = _parseDte(dte, className);
+            }
+            catch (Exception exception)
+            {
+                _showMessageBoxParsing(exception.ToString());
+                return;
+            }
+            
+            string netCode = new NetCodeWriter(parser.Classes).GetCode();
+
+            TextSelection selection = useCurrentDocument 
+                ? _executeSingleFile(dte) 
+                : _executeInSolution(dte, "TempClass.cs");
+
+            selection.SelectAll();
+            selection.Delete();
+            selection.Insert(netCode);
+        }
+
+        private void _showMessageBoxNoDte()
+        {
+            VsShellUtilities.ShowMessageBox(
+                package,
+                "DTE is null - please create an issue, including your json and repro-steps to https://github.com/matthiasburger/Json2Csharp-Issues/issues",
+                "Json to C# Plugin - Exception",
+                OLEMSGICON.OLEMSGICON_CRITICAL,
+                OLEMSGBUTTON.OLEMSGBUTTON_OK,
+                OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
+        }
+
+        private void _showMessageBoxParsing(string exception)
+        {
+            StringBuilder stringBuilder = new StringBuilder(exception)
+                .Append("----------------------------")
+                .Append(Environment.NewLine)
+                .Append("Please write an issue, including your json and repro-steps to https://github.com/matthiasburger/Json2Csharp-Issues/issues");
+
+            VsShellUtilities.ShowMessageBox(
+                package,
+                stringBuilder.ToString(),
+                "Json to C# Plugin - Exception",
+                OLEMSGICON.OLEMSGICON_CRITICAL,
+                OLEMSGBUTTON.OLEMSGBUTTON_OK,
+                OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
+        }
+
+        private void _showMessageBoxNoDocument()
+        {
+            VsShellUtilities.ShowMessageBox(
+                package,
+                "This function requires an active document. Please open a valid Json-File.",
+                "Json to C# Plugin - Exception",
+                OLEMSGICON.OLEMSGICON_INFO,
+                OLEMSGBUTTON.OLEMSGBUTTON_OK,
+                OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
+        }
+
         /// <summary>
         /// This function is the callback used to execute the command when the menu item is clicked.
         /// See the constructor to see how the menu item is associated with this function using
@@ -97,7 +174,7 @@ namespace JsonToCsharp
         /// <param name="sender">Event sender.</param>
         /// <param name="e">Event args.</param>
         [STAThread]
-        private void Execute(object sender, EventArgs e)
+        private void Execute_old(object sender, EventArgs e)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
 
@@ -153,5 +230,8 @@ namespace JsonToCsharp
                 }
             }
         }
+
+        protected override string GetText(_DTE dte) => 
+            Clipboard.ContainsText(TextDataFormat.Text) ? Clipboard.GetText(TextDataFormat.Text) : null;
     }
 }

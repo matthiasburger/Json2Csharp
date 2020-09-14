@@ -9,11 +9,12 @@ using EnvDTE;
 
 using IronSphere.Extensions;
 
+using JetBrains.Annotations;
+
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
 using Microsoft.VisualStudio.Text;
 
-using Constants = EnvDTE.Constants;
 using IAsyncServiceProvider = Microsoft.VisualStudio.Shell.IAsyncServiceProvider;
 using Task = System.Threading.Tasks.Task;
 
@@ -22,7 +23,7 @@ namespace JsonToCsharp
     /// <summary>
     /// Command handler
     /// </summary>
-    internal sealed class ConvertCommand
+    internal sealed class ConvertCommand : ConvertAssist
     {
         /// <summary>
         /// Command ID.
@@ -84,9 +85,6 @@ namespace JsonToCsharp
         }
 
 
-
-
-
         /// <summary>
         /// This function is the callback used to execute the command when the menu item is clicked.
         /// See the constructor to see how the menu item is associated with this function using
@@ -97,101 +95,96 @@ namespace JsonToCsharp
         private void Execute(object sender, EventArgs e)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
-
-            DTE dte = ServiceProvider.GetServiceAsync(typeof(DTE)).Result as DTE;
-
-            Document doc = dte?.ActiveDocument;
-
-            string path = doc.Path;
-
-            string @namespace = _findNameSpaceInPath(path);
-
-            TextDocument txt = doc?.Object() as TextDocument;
-
-            EditPoint editPoint = txt?.StartPoint.CreateEditPoint();
-
-            string result;
-            TextSelection selection = (TextSelection)dte?.ActiveDocument.Selection;
-            if (selection?.Text.Length > 0)
+            if (!(ServiceProvider.GetServiceAsync(typeof(DTE)).Result is DTE dte))
             {
-                result = selection.Text;
+                _showMessageBoxNoDte();
+                return;
             }
-            else
+
+            Document doc = dte.ActiveDocument;
+            if (doc is null)
             {
-                result = editPoint?.GetText(txt.EndPoint);
-                if (result is null)
-                    return;
+                _showMessageBoxNoDocument();
+                return;
             }
+
+            string className = doc?.Name?.Split('.').FirstOrDefault() ?? "temp_class";
+            JsonParser parser;
 
             try
             {
-                string className = doc?.Name?.Split('.').FirstOrDefault() ?? "initial_class";
-
-                JsonParser parser = new JsonParser(result)
-                {
-                    InitialClassName = className
-                };
-                parser.Parse();
-
-                string netCode = new NetCodeWriter(parser.Classes)
-                {
-                    Namespace = @namespace
-                }.GetCode();
-
-                if (!dte.Solution.FullName.IsNullOrWhiteSpace())
-                {
-                    string fileName = parser.Classes.FirstOrDefault(x => x.Name == className)?.GetClassName() ?? "TempClass";
-                    string filename = $"{fileName}.cs";
-                    dte.ItemOperations.NewFile(@"General\Text File", filename, Constants.vsViewKindTextView);
-
-                    TextSelection txtSel = (TextSelection)dte.ActiveDocument.Selection;
-                    txtSel.SelectAll();
-                    txtSel.Delete();
-                    txtSel.Insert(netCode);
-
-                    dte.ActiveDocument.Save(Path.Combine(path, filename));
-                    doc.ProjectItem.ProjectItems.AddFromFile(Path.Combine(path, filename));
-                }
-                else
-                {
-                    TextSelection txtSel = (TextSelection)dte.ActiveDocument.Selection;
-                    txtSel.SelectAll();
-                    txtSel.Delete();
-                    txtSel.Insert(netCode);
-                }
+                parser = _parseDte(dte, className);
             }
-            catch (Exception ex)
+            catch (Exception exception)
             {
-                StringBuilder stringBuilder = new StringBuilder(ex.ToString())
-                        .Append("----------------------------")
-                        .Append(Environment.NewLine)
-                        .Append("Please write an issue, including your json and repro-steps to https://github.com/matthiasburger/Json2Csharp-Issues/issues");
-
-                VsShellUtilities.ShowMessageBox(
-                    package,
-                    stringBuilder.ToString(),
-                    "Json to C# Plugin - Exception",
-                    OLEMSGICON.OLEMSGICON_INFO,
-                    OLEMSGBUTTON.OLEMSGBUTTON_OK,
-                    OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
+                _showMessageBoxParsing(exception.ToString());
+                return;
             }
+            
+            string @namespace = _findNameSpaceInPath(doc.Path);
+
+            string netCode = new NetCodeWriter(parser.Classes)
+            {
+                Namespace = @namespace
+            }.GetCode();
+
+            string fileName = $"{parser.Classes.FirstOrDefault(x => x.Name == className)?.GetClassName() ?? "TempClass"}.cs";
+            bool hasSolution = !dte.Solution.FullName.IsNullOrWhiteSpace();
+
+            TextSelection selection = hasSolution
+                ? _executeInSolution(dte, fileName)
+                : _executeSingleFile(dte);
+
+            selection.SelectAll();
+            selection.Delete();
+            selection.Insert(netCode);
+
+            if (!hasSolution)
+                return;
+
+            dte.ActiveDocument.Save(Path.Combine(doc.Path, fileName));
+            doc.ProjectItem.ProjectItems.AddFromFile(Path.Combine(doc.Path, fileName));
         }
 
-        private static string _findNameSpaceInPath(string path)
+        private void _showMessageBoxNoDte()
         {
-            string[] files = Directory.GetFiles(path, "*.cs", SearchOption.TopDirectoryOnly);
-            return files.Select(_getNamespaceInFile)
-                .FirstOrDefault(@namespace => !@namespace.IsNullOrWhiteSpace());
+            VsShellUtilities.ShowMessageBox(
+                package,
+                "DTE is null - please create an issue, including your json and repro-steps to https://github.com/matthiasburger/Json2Csharp-Issues/issues",
+                "Json to C# Plugin - Exception",
+                OLEMSGICON.OLEMSGICON_CRITICAL,
+                OLEMSGBUTTON.OLEMSGBUTTON_OK,
+                OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
         }
 
-        private static string _getNamespaceInFile(string filepath)
+        private void _showMessageBoxParsing(string exception)
         {
-            return (
-                from line in File.ReadLines(filepath) 
-                where line.StartsWith("namespace ") 
-                select ".".Join(line.Split(' ').Skip(1))
-                ).FirstOrDefault();
+            StringBuilder stringBuilder = new StringBuilder(exception)
+                .Append("----------------------------")
+                .Append(Environment.NewLine)
+                .Append("Please write an issue, including your json and repro-steps to https://github.com/matthiasburger/Json2Csharp-Issues/issues");
+
+            VsShellUtilities.ShowMessageBox(
+                package,
+                stringBuilder.ToString(),
+                "Json to C# Plugin - Exception",
+                OLEMSGICON.OLEMSGICON_CRITICAL,
+                OLEMSGBUTTON.OLEMSGBUTTON_OK,
+                OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
         }
+
+        private void _showMessageBoxNoDocument()
+        {
+            VsShellUtilities.ShowMessageBox(
+                package,
+                "This function requires an active document. Please open a valid Json-File.",
+                "Json to C# Plugin - Exception",
+                OLEMSGICON.OLEMSGICON_INFO,
+                OLEMSGBUTTON.OLEMSGBUTTON_OK,
+                OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
+        }
+
+        protected override string GetText(_DTE dte) => _getJsonToConvert(dte);
     }
 }
 
