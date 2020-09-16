@@ -69,9 +69,17 @@ namespace JsonToCsharp
                         }
                     case JTokenType.Array:
                         {
-                            Clazz c = _getOrCreateClazz(jProperty.Name);
-                            type = c.GetClassName();
-                            _parseArray((JArray)jProperty.Value, c);
+                            JArray value = (JArray)jProperty.Value;
+                            if (value.All(y => y.Type == JTokenType.Object))
+                            {
+                                Clazz c = _getOrCreateClazz(jProperty.Name);
+                                type = c.GetClassName();
+                                _parseArray(value, c);
+                                isList = true;
+                                break;
+                            }
+
+                            type = _getClrType(value.First(y=>y.Type != JTokenType.Object).Type);
                             isList = true;
                             break;
                         }

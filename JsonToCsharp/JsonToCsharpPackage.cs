@@ -33,7 +33,7 @@ namespace JsonToCsharp
         /// <summary>
         /// JsonToCsharpPackage GUID string.
         /// </summary>
-        public const string PackageGuidString = "37238716-a141-4b33-8d71-516af7f1ab1f";
+        public const string PackageGuidString = "1258f110-4197-4701-8c94-9f2ac57a574a";
 
         #region Package Members
 

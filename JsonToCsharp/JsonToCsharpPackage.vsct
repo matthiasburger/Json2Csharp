@@ -92,7 +92,7 @@
 
 	<Symbols>
 		<!-- This is the package guid. -->
-		<GuidSymbol name="guidJsonToCsharpPackage" value="{37238716-a141-4b33-8d71-516af7f1ab1f}" />
+		<GuidSymbol name="guidJsonToCsharpPackage" value="{1258f110-4197-4701-8c94-9f2ac57a574a}" />
 
 		<!-- This is the guid used to group the menu commands together -->
 		<GuidSymbol name="guidSampleVisualStudioExtensionPackageCmdSet" value="{bfbe045e-459f-4e5d-893f-3a5e84aef6b7}">

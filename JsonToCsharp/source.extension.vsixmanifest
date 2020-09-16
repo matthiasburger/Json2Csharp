@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
     <Metadata>
-        <Identity Id="JsonToCsharp.cb036afa-8f04-48c4-b369-9667a626193a" Version="1.0" Language="en-US" Publisher="Matthias Burger" />
+        <Identity Id="JsonToCsharp.1258f110-4197-4701-8c94-9f2ac57a574a" Version="1.1.1" Language="en-US" Publisher="Matthias Burger" />
         <DisplayName>JsonToCsharp</DisplayName>
         <Description xml:space="preserve">Converts a JSON-Object to a CSharp-Code</Description>
     </Metadata>
