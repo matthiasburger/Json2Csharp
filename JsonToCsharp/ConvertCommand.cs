@@ -139,11 +139,18 @@ namespace JsonToCsharp
             selection.Delete();
             selection.Insert(netCode);
 
-            if (!hasSolution)
+            if (!hasSolution || (doc.ProjectItem?.ProjectItems is null))
                 return;
 
-            dte.ActiveDocument.Save(Path.Combine(doc.Path, fileName));
-            doc.ProjectItem.ProjectItems.AddFromFile(Path.Combine(doc.Path, fileName));
+            try
+            {
+                dte.ActiveDocument.Save(Path.Combine(doc.Path, fileName));
+                doc.ProjectItem.ProjectItems.AddFromFile(Path.Combine(doc.Path, fileName));
+            }
+            catch (Exception)
+            {
+                // ignore. converted file doesn't belong to the solution
+            }
         }
 
         private void _showMessageBoxNoDte()
