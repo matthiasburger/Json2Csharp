@@ -70,6 +70,14 @@
 					<ButtonText>Convert to C#</ButtonText>
 				</Strings>
 			</Button>
+
+			<Button guid="guidConvertInSeparateFilesCmdSet" id="ConvertInSeparateFilesId" priority="0x0100" type="Button">
+				<Parent guid="guidSampleVisualStudioExtensionPackageCmdSet" id="MyMenuGroup" />
+				<Icon guid="guidImages" id="bmpPic1" />
+				<Strings>
+					<ButtonText>Convert Json to C# (separate files)</ButtonText>
+				</Strings>
+			</Button>
 			<Button guid="guidPasteJsonFromClipboardPackageCmdSet" id="PasteJsonFromClipboardId" priority="0x0100" type="Button">
 				<Parent guid="guidSampleVisualStudioExtensionPackageCmdSet" id="MyMenuGroup" />
 				<Icon guid="guidImages" id="bmpPic1" />
@@ -98,6 +106,11 @@
 		<GuidSymbol name="guidSampleVisualStudioExtensionPackageCmdSet" value="{bfbe045e-459f-4e5d-893f-3a5e84aef6b7}">
 			<IDSymbol name="MyMenuGroup" value="0x1020" />
 			<IDSymbol name="ConvertCommandId" value="0x0100" />
+			<IDSymbol name="SampleMenu" value="0x1021"/>
+		</GuidSymbol>
+		<GuidSymbol name="guidConvertInSeparateFilesCmdSet" value="{4878d2cb-d27b-4365-a6f9-be4118d4dea9}">
+			<IDSymbol name="MyMenuGroup" value="0x1020" />
+			<IDSymbol name="ConvertInSeparateFilesId" value="0x0100" />
 			<IDSymbol name="SampleMenu" value="0x1021"/>
 		</GuidSymbol>
 		<GuidSymbol name="guidPasteJsonFromClipboardPackageCmdSet" value="{168fa7de-1724-4ff0-adda-7ffb40d155aa}">

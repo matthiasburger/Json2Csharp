@@ -45,10 +45,23 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Batter.cs">
+      <DependentUpon>thing.json</DependentUpon>
+    </Compile>
+    <Compile Include="Batters.cs">
+      <DependentUpon>thing.json</DependentUpon>
+    </Compile>
     <Compile Include="ClassGenerator.cs" />
     <Compile Include="Clazz.cs" />
     <Compile Include="ConvertAssist.cs" />
     <Compile Include="ConvertCommand.cs" />
+    <Compile Include="ConvertInSeparateFiles.cs" />
+    <Compile Include="Item.cs">
+      <DependentUpon>thing.json</DependentUpon>
+    </Compile>
+    <Compile Include="Items.cs">
+      <DependentUpon>thing.json</DependentUpon>
+    </Compile>
     <Compile Include="JsonParser.cs" />
     <Compile Include="NetCodeWriter.cs" />
     <Compile Include="PasteJsonFromClipboard.cs" />
@@ -56,6 +69,13 @@
     <Compile Include="JsonToCsharpPackage.cs" />
     <Compile Include="Property.cs" />
     <Compile Include="PropertyGenerator.cs" />
+    <Compile Include="Thing.cs">
+      <DependentUpon>thing.json</DependentUpon>
+    </Compile>
+    <Compile Include="Topping.cs">
+      <DependentUpon>thing.json</DependentUpon>
+    </Compile>
+    <None Include="thing.json" />
   </ItemGroup>
   <ItemGroup>
     <None Include="source.extension.vsixmanifest">
@@ -63,6 +83,8 @@
     </None>
   </ItemGroup>
   <ItemGroup>
+    <Reference Include="DevExpress.Data.v17.2, Version=17.2.10.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a, processorArchitecture=MSIL" />
+    <Reference Include="DevExpress.Xpo.v17.2, Version=17.2.10.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a, processorArchitecture=MSIL" />
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="System" />
     <Reference Include="System.Data" />

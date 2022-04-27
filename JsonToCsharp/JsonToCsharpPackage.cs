@@ -51,6 +51,7 @@ namespace JsonToCsharp
             await this.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
             await ConvertCommand.InitializeAsync(this);
             await PasteJsonFromClipboard.InitializeAsync(this);
+            await ConvertInSeparateFiles.InitializeAsync(this);
         }
 
         #endregion
